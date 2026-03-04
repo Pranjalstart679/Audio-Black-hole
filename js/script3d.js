@@ -38,7 +38,8 @@ function generate3DParticles() {
     }
 
     // 6. Particle System (LineSegments mimicking true curves)
-    const particleCount = window.CONFIG ? window.CONFIG.particleCount : 20000;
+    const baseCount = window.CONFIG ? window.CONFIG.particleCount : 2000;
+    const particleCount = baseCount * 12; // massive density like reference image
     particlesGeometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 6);
     const colors = new Float32Array(particleCount * 6);
@@ -67,7 +68,7 @@ function generate3DParticles() {
             angle: theta,
             distance: r,
             speedModifier: Math.random() * 0.5 + 0.5,
-            intensity: 0.6 + Math.random() * 0.4 // Brighter overall
+            intensity: 0.85 + Math.random() * 0.15 // Pure stark white
         });
 
         // Color intensity mostly white like the reference pictures
@@ -84,7 +85,7 @@ function generate3DParticles() {
     const particlesMaterial = new THREE.LineBasicMaterial({
         vertexColors: true,
         transparent: true,
-        opacity: 0.8, // More opaque for sharper lines
+        opacity: 1.0, // Fully opaque for blazing stark lines
         blending: THREE.AdditiveBlending
     });
 
@@ -97,7 +98,8 @@ function update3DFromUI() {
     if (!particleSystem) return;
     // Check if count changed and rebuild if necessary
     const currentCount = particlesGeometry.attributes.position.count / 2;
-    if (currentCount !== window.CONFIG.particleCount) {
+    const targetCount = (window.CONFIG ? window.CONFIG.particleCount : 2000) * 12;
+    if (currentCount !== targetCount) {
         generate3DParticles();
     }
 }
@@ -105,12 +107,12 @@ function update3DFromUI() {
 function init3D() {
     // 1. Scene Setup
     scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.002);
+    scene.fog = new THREE.FogExp2(0x000000, 0.0005); // Drastically reduced fog so particles stay blazing white
 
     // 2. Camera Setup (Top-down view for that flat spiral galaxy look)
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.position.z = 0;
-    camera.position.y = 500;
+    camera.position.y = 350; // Closer aerial view
     camera.lookAt(0, 0, 0);
 
     // 3. Renderer Setup
@@ -200,9 +202,10 @@ function animate3D() {
         positions[idx + 5] = newZ;
 
         // Set tail behind the head based on streak configuration
-        positions[idx] = newX - velocityX * config.streakLength * 2.0;
-        positions[idx + 1] = newY - velocityY * config.streakLength * 2.0;
-        positions[idx + 2] = newZ - velocityZ * config.streakLength * 2.0;
+        // Vastly increased multiplier to match the long elegant streaks of the reference image
+        positions[idx] = newX - velocityX * config.streakLength * 15.0;
+        positions[idx + 1] = newY - velocityY * config.streakLength * 15.0;
+        positions[idx + 2] = newZ - velocityZ * config.streakLength * 15.0;
 
         // Responsively respawn particles if eaten by black hole
         if (pData.distance < 30 * coreScale) {
@@ -227,11 +230,11 @@ function animate3D() {
     // Slight camera shake for massive bass
     if (data.bassAvg > 0.8) {
         camera.position.x = (Math.random() - 0.5) * (data.bassAvg * 3);
-        camera.position.y = 500 + (Math.random() - 0.5) * (data.bassAvg * 3);
+        camera.position.y = 350 + (Math.random() - 0.5) * (data.bassAvg * 3);
     } else {
         // Slowly return camera to steady state
         camera.position.x += (0 - camera.position.x) * 0.1;
-        camera.position.y += (500 - camera.position.y) * 0.1;
+        camera.position.y += (350 - camera.position.y) * 0.1;
     }
 
     renderer.render(scene, camera);
