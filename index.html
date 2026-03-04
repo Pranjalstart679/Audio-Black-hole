@@ -12,7 +12,7 @@
   </head>
   <body>
     <canvas id="canvas"></canvas>
-    <div id="canvas-3d-container" style="display: none;"></div>
+    <div id="canvas-3d-container" style="display: none; position: absolute; top:0; left:0; width:100%; height:100%; z-index:1;"></div>
 
     <!-- Settings Toggle Button -->
     <button id="ui-toggle-btn" class="ui-toggle-btn" title="Toggle Controls">
@@ -79,9 +79,34 @@
       </div>
     </div>
 
-    <!-- Three.js Library -->
+    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Main Application Logic (2D & 3D) -->
     <script src="js/script.js"></script>
     <script src="js/script3d.js"></script>
+    
+    <!-- Mode Toggling Logic -->
+    <script>
+      const c2d = document.getElementById('canvas');
+      const c3dContainer = document.getElementById('canvas-3d-container');
+      const modeBtn = document.getElementById('mode-toggle');
+
+        modeBtn.addEventListener('click', () => {
+          if (window.currentMode === '2D') {
+              window.currentMode = '3D';
+              c2d.style.display = 'none';
+              c3dContainer.style.display = 'block';
+              modeBtn.textContent = 'View 2D Version';
+          } else {
+              window.currentMode = '2D';
+              c3dContainer.style.display = 'none';
+              c2d.style.display = 'block';
+              modeBtn.textContent = 'View 3D Version';
+          }
+          // Dispatch resize for Three.js so whichever canvas is newly shown recalculates properly
+          window.dispatchEvent(new Event('resize'));
+      });
+    </script>
   </body>
 </html>

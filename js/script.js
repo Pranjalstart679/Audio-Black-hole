@@ -23,6 +23,9 @@ window.audioData = {
     energy: 0
 };
 
+// Global playback state
+window.isAudioPlaying = false;
+
 // Global Configuration settings controlled by UI
 window.CONFIG = {
     particleCount: 2000,
@@ -66,7 +69,7 @@ audioUpload.addEventListener("change", function (e) {
     .play()
     .then(() => {
       statusMessage.textContent = file.name;
-      isAudioPlaying = true;
+      window.isAudioPlaying = true;
     })
     .catch((err) => {
       statusMessage.textContent = "Click play to start";
@@ -74,18 +77,18 @@ audioUpload.addEventListener("change", function (e) {
 });
 
 audioElement.addEventListener("play", () => {
-  isAudioPlaying = true;
+  window.isAudioPlaying = true;
   if (audioContext && audioContext.state === "suspended") {
     audioContext.resume();
   }
 });
 
 audioElement.addEventListener("pause", () => {
-  isAudioPlaying = false;
+  window.isAudioPlaying = false;
 });
 
 audioElement.addEventListener("ended", () => {
-  isAudioPlaying = false;
+  window.isAudioPlaying = false;
 });
 
 function setupAudioAPI() {
@@ -217,7 +220,7 @@ function initParticles() {
 initParticles();
 
 function updateAudioData() {
-  if (!analyser || !isAudioPlaying) {
+  if (!analyser || !window.isAudioPlaying) {
     bassAvg = Math.max(0, bassAvg - 0.05); // Decay
     midAvg = Math.max(0, midAvg - 0.05);
     trebleAvg = Math.max(0, trebleAvg - 0.05);

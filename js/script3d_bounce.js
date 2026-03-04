@@ -66,8 +66,8 @@ function generate3DParticles() {
         let r = 40 + Math.pow(Math.random(), 1.5) * 800; // density near center
         
         let x = r * Math.cos(theta);
-        // Vertical thickness (2.5D layering effect) very flat like a tangible disc
-        let y = (Math.random() - 0.5) * 8; 
+        // Vertical thickness (2.5D layering effect)
+        let y = (Math.random() - 0.5) * (r * 0.15); 
         let z = r * Math.sin(theta);
 
         // Tail
@@ -143,17 +143,18 @@ function animate3D() {
         const speed = (config.baseSpeed * pData.speedModifier + effectiveAudio * 5) * pull;
         
         const swirlAmount = 0.8 + effectiveAudio * 0.4;
-        
-        // If not playing, only do a very tiny idle spin with NO inward movement
-        if (!window.isAudioPlaying) {
-            pData.angle += (config.baseSpeed * 0.5) / pData.distance;
-        } else {
-            pData.angle += (speed * swirlAmount) / pData.distance;
-            pData.distance -= speed * 0.25;
-        }
+        pData.angle += (speed * swirlAmount) / pData.distance;
+        pData.distance -= speed * 0.25;
 
-        // Lock Y coordinate strictly to form a solid disc, overriding old bouncing logic
-        let newY = pData.baseYOffset;
+        // 2.5D Audio reactivity: Particles bounce vertically on the Y axis 
+        // depending on distance and audio frequencies
+        let verticalBounce = 0;
+        if (pData.distance > 50) {
+            let frequencyResponse = pData.distance < 300 ? data.bassAvg : data.trebleAvg;
+            verticalBounce = (Math.sin(pData.angle * 4 + Date.now() * 0.005) * 40 * frequencyResponse * config.audioSensitivity);
+        }
+        
+        let newY = pData.baseYOffset + verticalBounce;
         let newX = pData.distance * Math.cos(pData.angle);
         let newZ = pData.distance * Math.sin(pData.angle);
 
@@ -196,17 +197,8 @@ function animate3D() {
     }
     particlesGeometry3d.attributes.position.needsUpdate = true;
 
-    // Cinematic 2.5D Camera Drift / Global Object Spin
+    // Cinematic 2.5D Camera Drift
     let time = Date.now() * 0.0002;
-    
-    // Globally rotate the entire particle system object to spin the disc
-    // Slow idle spin if paused, faster if playing
-    if (window.isAudioPlaying) {
-        particleSystem3d.rotation.y -= 0.005 + (data.energy * 0.01 * config.audioSensitivity);
-    } else {
-        particleSystem3d.rotation.y -= 0.001; 
-    }
-
     camera3d.position.x = Math.sin(time) * 150;
     camera3d.position.z = 400 + Math.cos(time) * 100;
     
@@ -214,8 +206,8 @@ function animate3D() {
     camera3d.position.y = 250 + Math.sin(time * 0.5) * 50;
     camera3d.lookAt(0, 0, 0);
 
-    // Camera shake on heavy bass (Only if playing)
-    if (window.isAudioPlaying && data.bassAvg > 0.8) {
+    // Camera shake on heavy bass
+    if (data.bassAvg > 0.8) {
         let shake = (data.bassAvg - 0.8) * 20 * config.audioSensitivity;
         camera3d.position.x += (Math.random() - 0.5) * shake;
         camera3d.position.y += (Math.random() - 0.5) * shake;
