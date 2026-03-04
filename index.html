@@ -12,14 +12,24 @@
   </head>
   <body>
     <canvas id="canvas"></canvas>
+    <div id="canvas-3d-container" style="display: none;"></div>
+
+    <!-- Settings Toggle Button -->
+    <button id="ui-toggle-btn" class="ui-toggle-btn" title="Toggle Controls">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
 
     <div id="ui-container">
-      <div class="header">
-        <h1>Singularity</h1>
-        <p>Audio Reactive Particle System</p>
-      </div>
+      <div class="panel-content">
+        <div class="header">
+          <h1>Singularity</h1>
+          <p>Audio Reactive Particle System</p>
+        </div>
 
-      <div class="controls">
+        <div class="controls">
         <label for="audio-upload" class="upload-btn">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -40,12 +50,38 @@
         </label>
         <input type="file" id="audio-upload" accept="audio/*" />
 
+        <button id="mode-toggle" class="upload-btn">
+          View 3D Version
+        </button>
+
+        <div class="settings-panel">
+          <div class="setting-row">
+            <span class="setting-label">Particle Density</span>
+            <input type="range" id="particle-count" min="500" max="5000" value="2000" step="500">
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Idle Speed</span>
+            <input type="range" id="base-speed" min="0" max="2" value="0.2" step="0.1">
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Audio Sensitivity</span>
+            <input type="range" id="audio-sensitivity" min="0" max="3" value="1.0" step="0.1">
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Streak Length</span>
+            <input type="range" id="streak-length" min="0.5" max="5.0" value="2.0" step="0.1">
+          </div>
+        </div>
+
         <audio id="audio-element" controls></audio>
 
         <div id="status-message">Awaiting audio input...</div>
       </div>
     </div>
 
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/script.js"></script>
+    <script src="js/script3d.js"></script>
   </body>
 </html>

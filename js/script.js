@@ -15,10 +15,29 @@ let width, height, cx, cy;
 let animationId;
 let isAudioPlaying = false;
 
-// Audio Features
+// Audio Features - Exported for 3D script
+window.audioData = {
+    bassAvg: 0,
+    midAvg: 0,
+    trebleAvg: 0,
+    energy: 0
+};
+
+// Global Configuration settings controlled by UI
+window.CONFIG = {
+    particleCount: 2000,
+    baseSpeed: 0.2, // Very slow idle rotation
+    audioSensitivity: 1.0, // Multiplier for audio reactions
+    streakLength: 2.0 // How long the particle trails are
+};
+
+// Local variables referenced by 2D canvas functions
 let bassAvg = 0;
 let midAvg = 0;
 let trebleAvg = 0;
+
+// Mode tracking
+window.currentMode = '2D'; // '2D' or '3D'
 
 // Resize canvas
 function resize() {
@@ -102,80 +121,100 @@ class Particle {
     this.angle = angle;
     this.distance = dist;
 
-    // Random size and opacity
-    this.size = Math.random() * 2 + 0.5;
-    this.baseSpeed = Math.random() * 2 + 0.5;
+    // Slight variance in base speed, relative to global config
+    this.speedModifier = Math.random() * 0.5 + 0.5;
 
-    // Coloring: shades of purple, blue, pink, white
-    const colors = [
-      "rgba(123, 44, 191, OPACITY)", // deep purple
-      "rgba(224, 170, 255, OPACITY)", // light purple
-      "rgba(157, 78, 221, OPACITY)", // bright purple
-      "rgba(100, 223, 223, OPACITY)", // cyan
-      "rgba(255, 255, 255, OPACITY)", // white
-    ];
-    this.colorTemplate = colors[Math.floor(Math.random() * colors.length)];
+    // Mostly white, varying opacity
+    let intensity = 0.4 + Math.random() * 0.6;
+    if (Math.random() < 0.1) intensity = 1.0;
+    
+    // Pure/nearly pure white for reference styling
+    const r = 255;
+    const g = 255;
+    const b = 255;
+    
+    this.colorTemplate = `rgba(${r}, ${g}, ${b}, OPACITY)`;
     this.opacity = Math.random() * 0.5 + 0.1;
   }
 
   update(audioInfluence) {
-    // Calculate vector to center
+    // Record old position for line streak rendering
+    this.prevX = this.x;
+    this.prevY = this.y;
+
     const dx = cx - this.x;
     const dy = cy - this.y;
     this.distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Calculate tangent vector for swirling effect
-    const pull = 1 + 1000 / (this.distance + 10); // Gravitational pull increases as it gets closer
-    const speed = (this.baseSpeed + audioInfluence * 5) * pull;
+    // Filter audio influence so it only reacts to loud kicks/snares
+    // Square the influence to make it exponential rather than linear
+    let effectiveAudio = audioInfluence < 0.2 ? 0 : Math.pow(audioInfluence, 1.5);
+    // Apply UI sensitivity scaling
+    effectiveAudio *= window.CONFIG.audioSensitivity;
 
-    // Move towards center but with a swirl (tangential movement)
-    // Swirl factor increases as audio influence increases
-    const swirlAmount = 0.5 + audioInfluence * 0.5;
+    // Gravity pull inward
+    const pull = 1 + 500 / (this.distance + 10); 
+    
+    // Constant slow orbit (standby mode) + Audio acceleration bump
+    const speed = (window.CONFIG.baseSpeed * this.speedModifier + effectiveAudio * 6) * pull;
+
+    // Swirl factor (spin direction)
+    const swirlAmount = 0.8 + effectiveAudio * 0.5;
     this.angle += (speed * swirlAmount) / this.distance;
 
-    // Move inward
-    this.distance -= speed;
+    // Move inward - relatively slowly so the vortex stays dense like a galaxy
+    this.distance -= speed * 0.3; 
 
-    this.x = cx + Math.cos(this.angle) * this.distance;
-    this.y = cy + Math.sin(this.angle) * this.distance;
+    // Calculate actual new position
+    let newX = cx + Math.cos(this.angle) * this.distance;
+    let newY = cy + Math.sin(this.angle) * this.distance;
 
-    // Change size and opacity based on distance and audio
-    this.activeSize =
-      this.size * (1 + audioInfluence * 2) * (1 + 300 / (this.distance + 100));
+    // Streak length: calculate where we *should* fall behind visually based on velocity and setting
+    let velocityX = newX - this.prevX;
+    let velocityY = newY - this.prevY;
+    
+    this.x = newX;
+    this.y = newY;
+    
+    // Set the tail (prevX/Y) further back based on streak configuration
+    this.prevX = this.x - velocityX * window.CONFIG.streakLength;
+    this.prevY = this.y - velocityY * window.CONFIG.streakLength;
+
+    // Opacity gently boosts with the beat, clamped down slightly as they approach the center void
     this.activeOpacity = Math.min(
       1,
-      this.opacity + audioInfluence * 0.5 + 100 / (this.distance + 10),
+      this.opacity + effectiveAudio * 0.5 + 100 / (this.distance + 10),
     );
 
     // Reset if it hits the black hole event horizon
     if (this.distance < 40) {
       this.reset();
+      this.prevX = this.x;
+      this.prevY = this.y;
     }
   }
 
   draw() {
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.activeSize, 0, Math.PI * 2);
-    ctx.fillStyle = this.colorTemplate.replace("OPACITY", this.activeOpacity);
+    ctx.moveTo(this.prevX, this.prevY);
+    ctx.lineTo(this.x, this.y);
+    // Add visual crispness
+    ctx.strokeStyle = this.colorTemplate.replace("OPACITY", this.activeOpacity);
+    ctx.lineWidth = 0.5; // Thin elegant streaks like the reference
 
-    // Add glow for larger/closer particles
-    if (this.activeSize > 2 || this.distance < 150) {
-      ctx.shadowBlur = this.activeSize * 4;
-      ctx.shadowColor = this.colorTemplate.replace("OPACITY", "1");
-    } else {
-      ctx.shadowBlur = 0;
-    }
-
-    ctx.fill();
-    ctx.shadowBlur = 0; // Reset
+    ctx.stroke();
   }
 }
 
-// Initialize particles
-const particleCount = 1000;
-for (let i = 0; i < particleCount; i++) {
-  particles.push(new Particle());
+// Global initialization
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < window.CONFIG.particleCount; i++) {
+    particles.push(new Particle());
+  }
 }
+
+initParticles();
 
 function updateAudioData() {
   if (!analyser || !isAudioPlaying) {
@@ -215,96 +254,41 @@ function updateAudioData() {
   bassAvg = bassAvg * 0.8 + newBass * 0.2;
   midAvg = midAvg * 0.8 + newMid * 0.2;
   trebleAvg = trebleAvg * 0.8 + newTreble * 0.2;
+
+  // Update global data for 3D script
+  window.audioData.bassAvg = bassAvg;
+  window.audioData.midAvg = midAvg;
+  window.audioData.trebleAvg = trebleAvg;
+  window.audioData.energy = bassAvg * 0.6 + midAvg * 0.3 + trebleAvg * 0.1;
 }
 
 function drawBlackHole() {
   // Event horizon (pure black)
   const eventHorizonRadius = 40 + bassAvg * 15;
 
-  // Accretion disk (glowing ring)
-  const accretionDiskRadius = eventHorizonRadius * 1.5;
-
-  // Outer glow
-  let gradient = ctx.createRadialGradient(
-    cx,
-    cy,
-    eventHorizonRadius * 0.8,
-    cx,
-    cy,
-    accretionDiskRadius * 3,
-  );
-  gradient.addColorStop(0, "rgba(0, 0, 0, 1)");
-  gradient.addColorStop(0.2, `rgba(123, 44, 191, ${0.8 + bassAvg * 0.5})`);
-  gradient.addColorStop(0.5, `rgba(157, 78, 221, ${0.3 + midAvg * 0.4})`);
-  gradient.addColorStop(1, "rgba(3, 3, 3, 0)");
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, accretionDiskRadius * 3, 0, Math.PI * 2);
-  ctx.fillStyle = gradient;
-  ctx.fill();
-
-  // The void (Black hole center)
+  // The void (Black hole center) - Pure black, no colorful accretion disk to match the reference
   ctx.beginPath();
   ctx.arc(cx, cy, eventHorizonRadius, 0, Math.PI * 2);
   ctx.fillStyle = "#000000";
-  ctx.shadowBlur = 20 + bassAvg * 30;
-  ctx.shadowColor = "#e0aaff";
+  
+  // Slight white glow around the edges
+  ctx.shadowBlur = 10 + bassAvg * 20;
+  ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+  
   ctx.fill();
   ctx.shadowBlur = 0; // Reset
-
-  // Jet beams based on treble
-  if (trebleAvg > 0.2) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    // Rotate slowly
-    ctx.rotate(Date.now() * 0.0005);
-
-    ctx.beginPath();
-    // Top jet
-    ctx.moveTo(-10, -eventHorizonRadius);
-    ctx.lineTo(10, -eventHorizonRadius);
-    ctx.lineTo(0, -eventHorizonRadius - 200 - trebleAvg * 400);
-
-    let jetGradient = ctx.createLinearGradient(
-      0,
-      -eventHorizonRadius,
-      0,
-      -eventHorizonRadius - 400,
-    );
-    jetGradient.addColorStop(0, `rgba(224, 170, 255, ${trebleAvg * 0.8})`);
-    jetGradient.addColorStop(1, "rgba(224, 170, 255, 0)");
-
-    ctx.fillStyle = jetGradient;
-    ctx.fill();
-
-    ctx.beginPath();
-    // Bottom jet
-    ctx.moveTo(-10, eventHorizonRadius);
-    ctx.lineTo(10, eventHorizonRadius);
-    ctx.lineTo(0, eventHorizonRadius + 200 + trebleAvg * 400);
-
-    // Need to recreate gradient for bottom jet since it goes in opposite direction
-    let jetGradient2 = ctx.createLinearGradient(
-      0,
-      eventHorizonRadius,
-      0,
-      eventHorizonRadius + 400,
-    );
-    jetGradient2.addColorStop(0, `rgba(224, 170, 255, ${trebleAvg * 0.8})`);
-    jetGradient2.addColorStop(1, "rgba(224, 170, 255, 0)");
-    ctx.fillStyle = jetGradient2;
-    ctx.fill();
-
-    ctx.restore();
-  }
 }
 
 function animate() {
+  updateAudioData();
+
+  animationId = requestAnimationFrame(animate);
+
+  if (window.currentMode === '3D') return;
+
   // Clear canvas with deep black trail effect
   ctx.fillStyle = "rgba(3, 3, 3, 0.2)"; // creates trails
   ctx.fillRect(0, 0, width, height);
-
-  updateAudioData();
 
   drawBlackHole();
 
@@ -313,13 +297,13 @@ function animate() {
   const energy = bassAvg * 0.6 + midAvg * 0.3 + trebleAvg * 0.1;
 
   // Dynamically emit new particles based on sudden volume peaks (treble/mid)
-  if (trebleAvg > 0.5 && Math.random() < trebleAvg) {
+  if (trebleAvg > 0.5 && Math.random() < trebleAvg * window.CONFIG.audioSensitivity) {
     // Spawn burst of particles
-    const burstCount = Math.floor(trebleAvg * 20);
+    const burstCount = Math.floor(trebleAvg * 20 * window.CONFIG.audioSensitivity);
     for (let i = 0; i < burstCount; i++) {
       particles.push(new Particle());
-      // Keep array size manageable
-      if (particles.length > 3000) {
+      // Keep array size to configured max
+      if (particles.length > window.CONFIG.particleCount) {
         particles.shift();
       }
     }
@@ -329,8 +313,39 @@ function animate() {
     p.update(energy);
     p.draw();
   });
-
-  animationId = requestAnimationFrame(animate);
 }
 
 animate();
+
+// --- UI Settings Event Listeners ---
+document.getElementById('particle-count').addEventListener('input', (e) => {
+  const newCount = parseInt(e.target.value);
+  window.CONFIG.particleCount = newCount;
+  
+  // Adjust particle array if needed immediately
+  if (particles.length > newCount) {
+    particles.splice(0, particles.length - newCount);
+  } else if (particles.length < newCount) {
+    const diff = newCount - particles.length;
+    for(let i=0; i<diff; i++) particles.push(new Particle());
+  }
+});
+
+document.getElementById('base-speed').addEventListener('input', (e) => {
+  window.CONFIG.baseSpeed = parseFloat(e.target.value);
+});
+
+document.getElementById('audio-sensitivity').addEventListener('input', (e) => {
+  window.CONFIG.audioSensitivity = parseFloat(e.target.value);
+});
+
+document.getElementById('streak-length').addEventListener('input', (e) => {
+  window.CONFIG.streakLength = parseFloat(e.target.value);
+});
+
+// --- UI Collapse Toggle ---
+const uiContainer = document.getElementById('ui-container');
+const uiToggleBtn = document.getElementById('ui-toggle-btn');
+uiToggleBtn.addEventListener('click', () => {
+  uiContainer.classList.toggle('collapsed');
+});
